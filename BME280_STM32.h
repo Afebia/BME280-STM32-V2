@@ -1,93 +1,126 @@
-/*
- * BME280_STM32.h
- *
- *  Created on: Apr 3, 2024
- *      Author: berat
- */
-
-#ifndef INC_BME280_STM32_H_
-#define INC_BME280_STM32_H_
-
-#include <stdint.h>
-#include <stdio.h>
-#include "stm32f4xx_hal.h"
-#include <math.h>
-#include <stdbool.h>
-
 extern I2C_HandleTypeDef hi2c1;
+#define bme_i2c (hi2c1)
+
+#define BME280_ADDR 				(0x76 << 1) 		/*!I2C Address of BME280, which is 0xEC*/
+#define CHIP_ID_BME 				0x60				/*!Chip ID of BME280*/
+
+/*
+ *	 ===============================================================================
+ *                     	   ##### BME280 Register address Macros #####
+ *	 ===============================================================================
+ */
+#define HUM_LSB_REG_ADDR 			0xFE  				/*!Contains LSB part of raw humidity data */
+#define HUM_MSB_REG_ADR 			0xFD				/*!Contains MSB part of raw humidity data */
+#define TEMP_XLSB_REG_ADDR 			0xFC				/*!Contains XLSB part of raw temperature data, depends on pressure resuliton */
+#define TEMP_LSB_REG_ADDR 			0xFB				/*!Contains LSB part of raw temperature data */
+#define TEMP_MSB_REG_ADDR 			0xFA				/*!Contains MSB part of raw temperature data */
+#define PRESS_XLSB_REG_ADDR 		0xF9				/*!Contains XLSB part of raw pressure data, depends on temperature resuliton */
+#define PRESS_LSB_REG_ADDR 			0xF8				/*!Contains LSB part of raw pressure data */
+#define PRESS_MSB_REG_ADDR 			0xF7				/*!Contains MSB part of raw pressure data */
+#define RAWDATA_BASEADDR 			PRESS_MSB_REG_ADDR	/*!Base address of Raw data registers */
+
+#define CONFIG_REG_ADDR 			0xF5    			/*!Sets the rate, filter and enable or disable 3-wire SPI interface*/
+#define CTRL_MEAS_REG_ADDR 			0xF4 				/*!Control oversampling of temp and press and changes sensor modes */
+#define STATUS_REG_ADDR				0xF3				/*!Contains 2 bits which indicate status of BME280*/
+#define RESET_REG_ADDR 				0xE0    			/*!BME280 RESET register, to reset BME280, 0xB6 must be written to this register*/
+#define CHIP_ID_REG_ADDR 			0xD0 				/*!Contains chip number of BME280, which is 0x60*/
+
+#define CTRL_HUM_REG_ADDR 			0xF2  				/*!Controls oversampling of humidity data.
+														 * NOTE: This register must be written before changing ctrl_meas register
+														 */
+
+#define CALIB_DATA00_25_BASEADDR 	0x88  				/*!Base address of calib registers which contains compensation words from 0 to 25*/
+#define CALIB_DATA26_41_BASEADDR 	0xE1  				/*!Base address of calib registers which contains compensation words from 26 to 41*/
 
 
-#define BME280_ADDR (0x76 << 1) //0xEC  I2C Address
+/*
+ *	 ===============================================================================
+ *                     	   ##### BME280 Register definition #####
+ *	 ===============================================================================
+ *
+ *
+ * All possible OVERSAMPLING amount for pressure, temperatur and humidity
+ */
+#define OVERSAMPLING_SKIPPED  		0x0
+#define OVERSAMPLING_1				0x1
+#define OVERSAMPLING_2				0x2
+#define OVERSAMPLING_4				0x3
+#define OVERSAMPLING_8				0x4
+#define OVERSAMPLING_16				0x5
 
-#define CHIP_ID_BME 0x60
+/*
+ * Sensor modes	macros
+ */
+#define BME280_SLEEP_MODE  			0x0
+#define BME280_FORCED_MODE 			0x1
+#define BME280_NORMAL_MODE 			0x3
 
-//RAW DATA
-#define HUM_LSB_P 0xFE
-#define HUM_MSB_P 0xFD
-#define TEMP_XLSB_P 0xFC
-#define TEMP_LSB_P 0xFB
-#define TEMP_MSB_P 0xFA
-#define PRESS_XLSB_P 0xF9
-#define PRESS_LSB_P 0xF8
-#define PRESS_MSB_P 0xF7
+/*
+ * Standby time macros
+ */
+#define T_SB_0_5  					0
+#define T_SB_62_5					1
+#define T_SB_125					2
+#define T_SB_250					3
+#define T_SB_500					4
+#define T_SB_1000					5
+#define T_SB_10						6
+#define T_SB_20						7
 
-#define CONFIG_P 0xF5    //BME280 CONFIG register
-#define CTRL_MEAS_P 0xF4 //BME280 CTRL_Meas register
-#define CHIP_ID_P 0xD0   //BME280 CHIP_ID register
-#define CTRL_HUM_P 0xF2  //BME280 CTRL_HUM register
-#define RESET_P 0xE0     //BME280 RESET register
-#define BME280_ID_P 0xD0 //CHIP ID, which is 0x60
+/*
+ *Fiter	macros
+ */
+#define FILTER_OFF  				0x0
+#define FILTER_2					0x1
+#define FILTER_4					0x2
+#define FILTER_8					0x3
+#define FILTER_16					0x4
 
-#define CALIB_DATA1_P 0x88  // Calibration register, Sıcaklık ve Basınç için Compensation Values
-#define CALIB_DATA2_P 0xE1  // Calibration register, Nem için Compensation Values
+/*
+ * Enable or disable 3-wire SPI interface macros
+ */
+#define SPI3_W_ENABLE				0x1
+#define SPI3_W_DISABLE				0x0
 
-typedef enum{
-	SKIPPED = 0,
-	OVERSAMPLING_1,
-	OVERSAMPLING_2,
-	OVERSAMPLING_4,
-	OVERSAMPLING_8,
-	OVERSAMPLING_16
-}oversampling_t;
-
-typedef enum{ //ACCEL RANGES
-	SLEEP =0x00,
-	FORCED=0x01,
-	NORMAL=0x03
-}sensor_mode_t;
-
-typedef enum{
-	 T_SB_0_5 = 0x00,
-	 T_SB_62_5,
-	 T_SB_125,
-	 T_SB_250,
-	 T_SB_500,
-	 T_SB_1000,
-	 T_SB_10,
-	 T_SB_20
-}standby_t;
-
-typedef enum{
-	 FILTER_OFF = 0x00,
-	 FILTER_2,
- 	 FILTER_4,
-	 FILTER_8,
-	 FILTER_16
-}filter_t;
-
+/**
+  * BME280 raw data structure definition
+  */
 typedef struct{
-
 	int32_t tempr;
 	int32_t pressr;
-	uint16_t humr;
-}raw_data_t;
+	int32_t humr;
+}Raw_Data_t;
 
-void Calibdata_BME280(void);  //Compensation Value Okuma
-void RawdataBME280(void);    //Raw Data Okuma
-void BME280Init(oversampling_t oversamplingT , oversampling_t  oversamplingP,
-		oversampling_t oversamplingH,sensor_mode_t mode,standby_t t_sb,filter_t filter);  //İnitizaliton Fonksiyonu
-void BME280Calculation(void);  //Sıcaklık, Basınç ve Nem Değerlerini Hesaplama
+typedef struct {
+    float Temperature;
+    float Pressure;
+    float Humidity;
+    float AltitudeP;
+    float AltitudeTP;
+}BME280_Data_t;
 
+/**
+  * BME280 Init structure definition
+  */
+typedef struct
+{
+	uint8_t OverSampling_T;
+	uint8_t OverSampling_P;
+	uint8_t OverSampling_H;
+	uint8_t Mode;
+	uint8_t T_StandBy;
+	uint8_t Filter;
+	uint8_t SPI_EnOrDıs;
+}BME280_Init_t;
+
+/*
+ * BME280 library function declaration
+ */
+void Calibdata_BME280(void);
+Raw_Data_t RawdataBME280(void);
+void BME280Init(BME280_Init_t BME280Init);
+void BME280Calculation(BME280_Data_t *result);
+HAL_StatusTypeDef BME280_SleepMode(void);
 uint32_t BME280_measure_Hum(int32_t adc_H);
 uint32_t BME280_measure_Press(int32_t adc_P);
 int32_t BME280_measure_Temp(int32_t adc_T);
